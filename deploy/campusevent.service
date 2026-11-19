@@ -1,5 +1,5 @@
 [Unit]
-Description=CampusEvent Flask application (gunicorn)
+Description=CampusEvent Flask application (gunicorn, /campusevent)
 After=network.target
 
 [Service]
@@ -7,9 +7,9 @@ Type=simple
 User=campusevent
 Group=campusevent
 WorkingDirectory=/opt/campusevent
-Environment="PATH=/opt/campusevent/.venv/bin"
+Environment="CAMPUSEVENT_URL_PREFIX=/campusevent"
 Environment="PYTHONUNBUFFERED=1"
-ExecStart=/opt/campusevent/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 --access-logfile - wsgi:app
+ExecStart=/opt/campusevent/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8001 --access-logfile - --error-logfile - wsgi:app
 Restart=always
 RestartSec=3
 

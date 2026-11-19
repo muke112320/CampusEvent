@@ -24,7 +24,7 @@
 - Python 3.11+（开发环境 3.12）
 - Flask 3.1 + Jinja2 服务端渲染
 - SQLite（标准库 `sqlite3`，无 ORM）
-- pytest 9（26 条自动化测试）
+- pytest 9（29 条自动化测试）
 - 原生 CSS，无前端框架依赖
 
 ## 3. 目录结构
@@ -90,7 +90,8 @@ python3 -m venv .venv
 - `tests/test_acceptance.py`：指导书 3.5 节 C1—C10 全部验收用例（HTTP 操作 + 数据库核对）
 - `tests/test_rules.py`：策略选择、满员、重复报名、取消/拒绝后重报、活动开始、容量回退、删除保护、权限
 - `tests/test_notifications.py`：站内 + 邮件双渠道、失败留痕、同一事件幂等、事务边界
-- 共 26 条，全部通过（基线版本实测 `26 passed`）
+- `tests/test_prefix.py`：`/campusevent/` 子路径部署下的登录、静态资源与会话 cookie 隔离
+- 共 29 条，全部通过（最终版本实测 `29 passed`）
 
 ## 6. 设计要点
 
@@ -110,23 +111,36 @@ python3 -m venv .venv
 
 ## 8. 部署到服务器
 
-仓库提供 Linux 部署示例（`deploy/`）：gunicorn + systemd + Nginx。步骤：
+系统已部署到腾讯云轻量应用服务器（Ubuntu 24.04.2 LTS），访问地址：
 
-```bash
-sudo mkdir -p /opt/campusevent && sudo chown $USER /opt/campusevent
-# 上传代码后
-cd /opt/campusevent
-python3 -m venv .venv
-.venv/bin/pip install -r requirements-prod.txt
-.venv/bin/python -c "from app import create_app; create_app()"   # 初始化数据库
-sudo cp deploy/campusevent.service /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl enable --now campusevent
-sudo cp deploy/nginx-campusevent.conf /etc/nginx/sites-available/campusevent
-sudo ln -s /etc/nginx/sites-available/campusevent /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
+**<http://120.76.59.189/campusevent/>**
+
+部署结构：
+
+```
+浏览器 → Nginx :80  /campusevent/ → gunicorn 127.0.0.1:8001 → Flask → SQLite
+                     /（根路径）→ 实验一 StudyTask（127.0.0.1:8000）
 ```
 
-本地已验证启动、页面访问、报名/审批、重启后数据持久化；云服务器公网访问需在自有主机执行上述步骤后验证，README 不填写虚构地址。
+- 应用目录：`/opt/campusevent`，数据库：`/opt/campusevent/instance/campusevent.sqlite3`
+- 进程托管：`systemd` 服务 `campusevent`，gunicorn 2 worker
+- Nginx 复用现有 80 端口，以 `/campusevent/` 子路径反向代理，不影响根路径的 StudyTask
+- 子路径通过 `CAMPUSEVENT_URL_PREFIX=/campusevent` 挂载，`url_for` 自动生成带前缀的静态资源、表单与跳转
+- 会话 cookie 使用独立名称 `campusevent_session`，避免与同主机其他 Flask 应用互相覆盖
+- 已实测：公网登录、活动列表、报名、重启服务后报名数据仍存在；StudyTask 根路径仍正常
+
+常用运维命令：
+
+```bash
+sudo systemctl status campusevent
+sudo systemctl restart campusevent
+sudo journalctl -u campusevent -n 50 --no-pager
+curl -I http://120.76.59.189/campusevent/login
+```
+
+更新代码：重新上传源码到 `/opt/campusevent`（保留 `instance/` 数据库），`sudo systemctl restart campusevent` 即可。部署辅助文件见 `deploy/`（`campusevent.service`、`nginx-campusevent.conf`、`add_campusevent_nginx.py`）。
+
+> 注：早期文档中的“8000 端口 + 独立站点”配置适用于独立主机；本机与 StudyTask 共用 80 端口，因此实际使用 8001 + `/campusevent/` 子路径。
 
 ## 9. 已知限制
 

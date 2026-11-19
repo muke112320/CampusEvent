@@ -1,4 +1,4 @@
-﻿"""生成实验二（baseline-v1）回归测试表 Excel。"""
+"""生成实验二（baseline-v1）回归测试表 Excel。"""
 
 from __future__ import annotations
 
@@ -80,8 +80,10 @@ def build() -> None:
         ("pytest", "9.2.0"),
         ("数据库", "每个用例独立临时 SQLite 文件（pytest tmp_path），互不影响"),
         ("执行命令", r".\.venv\Scripts\python.exe -m pytest -v"),
-        ("执行结果", "26 passed（约 2.8 秒）（C1—C10 + 16 条补充测试）"),
+        ("执行结果", "29 passed（约 3.6 秒）：C1—C10 + 16 条补充 + 3 条部署测试"),
         ("测试原则", "所有验收用例通过 HTTP 页面操作，并从数据库核对结果；不使用静态截图代替运行"),
+        ("部署地址", "http://120.76.59.189/campusevent/"),
+        ("部署环境", "腾讯云 Ubuntu 24.04.2 LTS · Nginx 80 · gunicorn 8001 · systemd"),
     ]
     for index, (key, value) in enumerate(rows, start=2):
         env.cell(row=index, column=1, value=key)
@@ -188,9 +190,10 @@ def build() -> None:
     rows = [
         ("C1—C10 核心验收", 10, "10 / 100%"),
         ("补充测试", 16, "16 / 100%"),
-        ("合计", 26, "26 / 100%"),
+        ("部署测试", 3, "3 / 100%"),
+        ("合计", 29, "29 / 100%"),
         ("源码规模", "25 个 Python 文件 / 约 2.5k 行", "—"),
-        ("测试代码", "3 个测试文件 / 约 660 行", "—"),
+        ("测试代码", "4 个测试文件 / 约 700 行", "—"),
     ]
     for index, row in enumerate(rows, start=3):
         for col, value in enumerate(row, start=1):
@@ -201,6 +204,40 @@ def build() -> None:
         summary.cell(row=index, column=3).alignment = Alignment(horizontal="center", vertical="center")
         summary.row_dimensions[index].height = 26
     set_widths(summary, {1: 30, 2: 34, 3: 22})
+
+    # ---------------- 部署验证 ----------------
+    deploy = workbook.create_sheet("部署验证")
+    style_title(deploy, "云服务器部署验证（腾讯云 /campusevent 子路径）", 5)
+    headers = ["检查项", "操作 / 输入", "预期", "实际", "结论"]
+    for col, value in enumerate(headers, start=1):
+        deploy.cell(row=2, column=col, value=value)
+    style_header(deploy, 2, len(headers))
+    checks = [
+        ("公网登录页", "GET http://120.76.59.189/campusevent/login", "HTTP 200 且页面含 CampusEvent",
+         "HTTP 200，品牌与静态前缀正确"),
+        ("静态资源", "GET /campusevent/static/style.css", "HTTP 200 且返回 CSS",
+         "HTTP 200，长度约 15.9KB"),
+        ("登录与跳转", "学生 s1 登录", "跳转 /campusevent/activities，链接保留前缀",
+         "最终 URL 与页面链接均带 /campusevent 前缀"),
+        ("真实报名", "POST /campusevent/activities/ACT-DEMO-01/register", "报名成功，状态已通过",
+         "页面提示报名成功，详情显示已通过"),
+        ("重启持久化", "systemctl restart campusevent 后重新登录", "报名与活动仍在",
+         "我的报名中活动与已通过状态仍存在"),
+        ("既有应用兼容", "GET http://120.76.59.189/", "StudyTask 正常",
+         "HTTP 200，页面标题正常"),
+        ("子路径自动化测试", "pytest tests/test_prefix.py", "3 passed", "3 passed"),
+    ]
+    for index, row in enumerate(checks, start=3):
+        for col, value in enumerate(row, start=1):
+            deploy.cell(row=index, column=col, value=value)
+        mark_pass(deploy, index, 5)
+    style_body(deploy, 3, len(checks) + 2, len(headers))
+    for index in range(3, len(checks) + 3):
+        deploy.cell(row=index, column=1).font = Font(name="微软雅黑", size=10, bold=True)
+        mark_pass(deploy, index, 5)
+        deploy.row_dimensions[index].height = 34
+    set_widths(deploy, {1: 18, 2: 46, 3: 32, 4: 42, 5: 8})
+    deploy.freeze_panes = "A3"
 
     workbook.save(OUT)
     print("saved", OUT)

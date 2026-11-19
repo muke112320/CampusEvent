@@ -1,4 +1,4 @@
-﻿"""生成实验二（baseline-v1）答辩 PPT。"""
+"""生成实验二（baseline-v1）答辩 PPT。"""
 
 from __future__ import annotations
 
@@ -187,6 +187,8 @@ def build() -> None:
     textbox(slide, 0.9, 5.5, 5.5, 0.35, "姓名：柯文韬　　2026-11-19", 14, False, WHITE)
     textbox(slide, 0.9, 5.92, 5.5, 0.35, "版本标签：baseline-v1", 12, False,
             RGBColor(0xBF, 0xD2, 0xF0))
+    textbox(slide, 0.9, 6.3, 5.9, 0.32, "在线访问：http://120.76.59.189/campusevent/", 10.5, False,
+            RGBColor(0x93, 0xC5, 0xFD))
     textbox(slide, 7.7, 2.5, 4.9, 0.4, "本项目的三个关键词", 14, True, RGBColor(0x93, 0xC5, 0xFD))
     bullets(slide, 7.7, 3.05, 4.9, 2.8, [
         "职责先行：先画类图与时序图，再让 AI 编码",
@@ -373,11 +375,11 @@ def build() -> None:
     notes(slide, "审批页的“剩余名额”与通知台账是现场答辩的可验证点。")
 
     # 11 测试
-    slide = add_slide(prs, "九、测试与验收", "26 条自动化测试全部通过", 11, total)
+    slide = add_slide(prs, "九、测试与验收", "29 条自动化测试全部通过", 11, total)
     rect(slide, 0.55, 1.65, 3.3, 2.2, RGBColor(0xEC, 0xFD, 0xF5), RGBColor(0xA7, 0xF3, 0xD0))
-    textbox(slide, 0.75, 1.8, 2.9, 0.9, "26", 48, True, GREEN, PP_ALIGN.CENTER)
+    textbox(slide, 0.75, 1.8, 2.9, 0.9, "29", 48, True, GREEN, PP_ALIGN.CENTER)
     textbox(slide, 0.75, 2.75, 2.9, 0.35, "全部通过", 13, False, GREEN, PP_ALIGN.CENTER)
-    textbox(slide, 0.75, 3.15, 2.9, 0.35, "C1—C10 + 16 条补充", 11, False, GRAY, PP_ALIGN.CENTER)
+    textbox(slide, 0.75, 3.15, 2.9, 0.35, "C1—C10 + 19 条补充", 11, False, GRAY, PP_ALIGN.CENTER)
     rect(slide, 4.15, 1.65, 8.65, 2.2, CARD, LINE)
     textbox(slide, 4.4, 1.78, 8.2, 0.3, "覆盖的风险点", 13, True, NAVY)
     bullets(slide, 4.4, 2.15, 8.2, 1.6, [
@@ -390,6 +392,7 @@ def build() -> None:
         ("C1—C10 核心验收", "10 / 10", "tests/test_acceptance.py"),
         ("策略与边界补充", "13 / 13", "tests/test_rules.py"),
         ("通知与幂等", "3 / 3", "tests/test_notifications.py"),
+        ("子路径部署", "3 / 3", "tests/test_prefix.py"),
     ]
     table = slide.shapes.add_table(len(rows), 3, Inches(0.55), Inches(4.25), Inches(12.25), Inches(2.0)).table
     widths = [4.6, 2.4, 5.25]
@@ -421,7 +424,7 @@ def build() -> None:
     textbox(slide, 0.8, 4.62, 11.8, 0.3, "可测指标（baseline-v1）", 13, True, NAVY)
     metrics = [
         ("策略实现", "2 个"), ("通知订阅者", "2 个"), ("主流程类型分支", "0 处"),
-        ("自动化测试", "26 条 100%"), ("源码规模", "≈2.5k 行"),
+        ("自动化测试", "29 条 100%"), ("源码规模", "≈2.5k 行"),
     ]
     for index, (label, value) in enumerate(metrics):
         x = 0.8 + index * 2.35
@@ -451,7 +454,8 @@ def build() -> None:
         "扩展点已保留：新增报名规则 = 新增策略；新增通知渠道 = 新增订阅者",
         "拿到变更单后：先写影响分析，再在 baseline-v1 上建分支实现，最后跑全量回归",
     ], size=13, spacing=8)
-    textbox(slide, 0.6, 6.35, 12.2, 0.4, "谢谢，请老师批评指正。", 15, True, NAVY)
+    textbox(slide, 0.6, 6.0, 12.2, 0.35, "在线演示：http://120.76.59.189/campusevent/", 13, True, BLUE)
+    textbox(slide, 0.6, 6.45, 12.2, 0.4, "谢谢，请老师批评指正。", 15, True, NAVY)
     notes(slide, "明确说明没有提前实现变更，符合指导书的流程要求。")
 
     prs.save(OUT)
