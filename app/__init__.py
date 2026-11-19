@@ -17,6 +17,8 @@ def create_app(test_config: dict | None = None) -> Flask:
         DATABASE=str(Path(app.instance_path) / "campusevent.sqlite3"),
         EMAIL_GATEWAY="outbox",  # outbox | failing
         SEED_DEMO_DATA=True,
+        # 与同主机上的其他 Flask 应用隔离，避免 session cookie 互相覆盖
+        SESSION_COOKIE_NAME="campusevent_session",
     )
     if test_config:
         app.config.update(test_config)

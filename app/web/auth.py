@@ -30,7 +30,11 @@ def login():
             session.clear()
             session["user_id"] = user.student_id
             flash(f"欢迎，{user.name}（{user.role.label}）", "success")
-            return redirect(_safe_next(request.args.get("next")))
+            target = _safe_next(request.args.get("next"))
+            # 子路径部署时 request.path 不含前缀，需要补回 SCRIPT_NAME
+            if request.script_root and not target.startswith(request.script_root):
+                target = request.script_root + target
+            return redirect(target)
 
     accounts = get_container().students.list_all()
     return render_template("login.html", accounts=accounts)

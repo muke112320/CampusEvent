@@ -46,6 +46,9 @@ def cancel(registration_id: str):
 
     redirect_to = request.form.get("next")
     if redirect_to and redirect_to.startswith("/") and not redirect_to.startswith("//"):
+        # 子路径部署：表单里的 next 是应用内路径，需要补回 SCRIPT_NAME
+        if request.script_root and not redirect_to.startswith(request.script_root):
+            redirect_to = request.script_root + redirect_to
         return redirect(redirect_to)
     if detail is not None:
         return redirect(url_for("activities.detail", activity_id=detail.activity.activity_id))
