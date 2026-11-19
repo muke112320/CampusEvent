@@ -12,3 +12,5 @@ instance/
 .DS_Store
 Thumbs.db
 docs/render/
+V2/
+.dsh-office-*/

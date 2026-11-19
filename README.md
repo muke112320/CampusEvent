@@ -134,3 +134,17 @@ sudo nginx -t && sudo systemctl reload nginx
 - 邮件渠道为出件箱模拟（写入 `email_outbox` 表），不连接真实 SMTP。
 - SQLite 单文件数据库，适合单机演示；高并发场景需替换为 MySQL/PostgreSQL。
 - 未实现 CSRF Token（教学项目范围外）。
+
+## 10. 交付物清单
+
+| 交付物 | 路径 |
+| --- | --- |
+| 可运行源代码、模板、测试 | `app/`、`tests/`、`run.py` |
+| 实验报告（8 页） | `docs/实验报告.docx` |
+| 答辩 PPT（13 页） | `docs/演示PPT.pptx` |
+| 回归测试表（C1—C10 + 16 条补充） | `docs/08_回归测试表.xlsx` |
+| 初始 SRS 分析、用例说明、UML、时序、设计模式决策、评审表 | `docs/01`—`docs/06` |
+| AI 协作记录 | `AI_DEV_LOG.md` |
+| 文档索引 | `docs/README.md` |
+
+> 说明：当前只交付 `baseline-v1`。教师尚未发布需求变更单，因此没有提前实现任何变更功能；变更版将在收到正式变更单后，按影响分析—分支实现—回归测试的流程补充。

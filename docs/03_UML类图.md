@@ -1,4 +1,4 @@
-# UML 类图与职责划分（baseline-v1）
+﻿# UML 类图与职责划分（baseline-v1）
 
 类图分为两个视图：**领域模型视图**回答“系统有哪些业务概念、它们如何关联”；**设计类图视图**回答“职责如何分配到类/接口、变化点被隔离在哪里”。两张图共同覆盖指导书 B.3 的检查要求。
 
@@ -95,7 +95,7 @@ repositories（SQLite 实现，被容器注入服务）
 
 ### 2.6 设计成本（如实记录）
 
-- 类比“一个 service 文件写完”多：基线 20 个 Python 文件、约 1.5k 行源码（不含测试与文档）。
+- 类比“一个 service 文件写完”多：基线 25 个 Python 文件、约 2.5k 行源码（含 docstring 与类型注解，不含测试与文档）。
 - 调用链更长：报名一次经过 controller → service → policy → repository → event bus → 2 个订阅者，排错需要看投递台账。
 - 对小项目存在过度设计风险；本项目的理由是“需求明确要求可扩展的报名规则与多通知渠道”，且变更阶段会验证收益。
 
@@ -112,3 +112,4 @@ repositories（SQLite 实现，被容器注入服务）
 | 仓储 | `app/repositories.py` |
 | 装配 | `app/container.py`、`app/dependencies.py` |
 | 表结构与迁移 | `app/migrations.py` |
+

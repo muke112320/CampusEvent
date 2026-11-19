@@ -706,13 +706,10 @@ def waitlist_sequence() -> None:
 
 if __name__ == "__main__":
     domain_diagram("baseline")
-    domain_diagram("change")
     design_diagram("baseline")
-    design_diagram("change")
     use_case_diagram()
     direct_registration_sequence()
     review_registration_sequence()
     approval_sequence()
-    waitlist_sequence()
 
 
