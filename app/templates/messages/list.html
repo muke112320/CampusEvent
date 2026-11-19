@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}站内消息{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">INBOX</p>
+    <h1>站内消息</h1>
+    <p class="lead">报名与审核结果会写入站内消息；同一事件同时投递站内消息与邮件，失败会记录在管理员通知台账。</p>
+  </div>
+  {% if items %}
+  <form method="post" action="{{ url_for('messages.read_all') }}">
+    <button class="btn btn--ghost" type="submit">全部标为已读</button>
+  </form>
+  {% endif %}
+</section>
+
+{% if items %}
+<div class="message-list">
+  {% for message in items %}
+  <article class="message {{ 'message--unread' if not message.is_read else '' }}">
+    <span class="message__dot" style="{{ 'background:#cbd5e1' if message.is_read else '' }}"></span>
+    <div class="message__body">
+      <div class="message__meta">
+        <span>
+          <span class="tag tag--ghost">{{ message.category|category_label }}</span>
+          {% if not message.is_read %}<span class="badge badge--pending">未读</span>{% endif %}
+        </span>
+        <span>{{ message.created_at|dt }}</span>
+      </div>
+      <p>{{ message.content }}</p>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">
+  <h2>暂无站内消息</h2>
+  <p>报名活动或等待审核结果后，通知会出现在这里。</p>
+</div>
+{% endif %}
+{% endblock %}

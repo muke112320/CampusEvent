@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}活动广场{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">CAMPUS EVENT</p>
+    <h1>{{ "活动管理" if g.user.is_admin else "活动广场" }}</h1>
+    <p class="lead">
+      {% if g.user.is_admin %}
+        维护校园活动、查看报名统计；报名方式决定学生报名后的状态流转。
+      {% else %}
+        浏览校园活动，按名称搜索；直接报名类活动即时通过，审核类活动由管理员审批。
+      {% endif %}
+    </p>
+  </div>
+  {% if g.user.is_admin %}
+  <a class="btn btn--primary" href="{{ url_for('activities.new') }}">＋ 新建活动</a>
+  {% endif %}
+</section>
+
+<form class="filter-bar" method="get" action="{{ url_for('activities.index') }}">
+  <input type="search" name="q" value="{{ keyword }}" placeholder="按活动名称搜索，例如：迎新、讲座">
+  <button class="btn btn--primary" type="submit">搜索</button>
+  {% if keyword %}
+  <a class="btn btn--ghost" href="{{ url_for('activities.index') }}">清除</a>
+  {% endif %}
+</form>
+
+{% if activities %}
+<div class="card-grid">
+  {% for activity in activities %}
+  {% set s = stats[activity.activity_id] %}
+  {% set mine = my_registrations.get(activity.activity_id) if my_registrations else None %}
+  <article class="activity-card">
+    <div class="activity-card__top">
+      <span class="tag">{{ activity.category }}</span>
+      <span class="tag tag--policy">{{ activity.policy_type.label }}</span>
+    </div>
+    <h2><a href="{{ url_for('activities.detail', activity_id=activity.activity_id) }}">{{ activity.title }}</a></h2>
+    <p class="muted">{{ activity.description or "暂无活动描述" }}</p>
+    <dl class="meta-list">
+      <div><dt>活动时间</dt><dd>{{ activity.start_at|dt }}</dd></div>
+      <div><dt>活动地点</dt><dd>{{ activity.location }}</dd></div>
+    </dl>
+    <div class="capacity">
+      <div class="capacity__text">
+        <span>已通过 {{ s.approved }}/{{ activity.capacity }}{% if s.pending %} · 待审核 {{ s.pending }}{% endif %}</span>
+        <span>剩余 {{ s.remaining }} 个名额</span>
+      </div>
+      <div class="progress"><span style="width: {{ (s.approved / activity.capacity * 100)|round(0, 'floor') }}%"></span></div>
+    </div>
+    <div class="activity-card__foot">
+      {% if g.user.is_admin %}
+        <span class="badge badge--muted">共 {{ s.approved + s.pending }} 条报名</span>
+      {% elif mine %}
+        <span class="badge badge--{{ mine.status.value }}">我的状态：{{ mine.status.label }}</span>
+      {% else %}
+        <span class="badge badge--muted">未报名</span>
+      {% endif %}
+      <a class="btn btn--ghost btn--sm" href="{{ url_for('activities.detail', activity_id=activity.activity_id) }}">查看详情 →</a>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">
+  <h2>没有找到活动</h2>
+  {% if keyword %}
+  <p>没有名称包含“{{ keyword }}”的活动，<a href="{{ url_for('activities.index') }}">查看全部活动</a>。</p>
+  {% else %}
+  <p>当前还没有活动{% if g.user.is_admin %}，可以点击右上角“新建活动”发布第一个活动{% endif %}。</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

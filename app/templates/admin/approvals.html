@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}审批台{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">APPROVAL DESK</p>
+    <h1>审批台</h1>
+    <p class="lead">审核类活动的报名申请按提交时间先到先审。批准时会再次检查名额，名额已满则批准失败。</p>
+  </div>
+</section>
+
+<form class="filter-bar" method="get" action="{{ url_for('admin.approvals') }}">
+  <select name="activity_id" aria-label="按活动筛选">
+    <option value="">全部活动的待审核申请</option>
+    {% for activity in activities %}
+    <option value="{{ activity.activity_id }}" {% if selected_activity == activity.activity_id %}selected{% endif %}>
+      {{ activity.title }}（{{ activity.policy_type.label }}）
+    </option>
+    {% endfor %}
+  </select>
+  <button class="btn btn--primary" type="submit">筛选</button>
+  {% if selected_activity %}
+  <a class="btn btn--ghost" href="{{ url_for('admin.approvals') }}">清除</a>
+  {% endif %}
+</form>
+
+{% if pending %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>学生</th><th>活动</th><th>活动时间</th><th>提交时间</th><th>当前名额</th><th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in pending %}
+      <tr>
+        <td>
+          <strong>{{ item.student.name }}</strong>
+          <div class="mono muted">{{ item.student.student_id }}</div>
+        </td>
+        <td>
+          <a href="{{ url_for('activities.detail', activity_id=item.activity.activity_id) }}">{{ item.activity.title }}</a>
+          <div class="muted small">{{ item.activity.policy_type.label }} · 上限 {{ item.activity.capacity }} 人</div>
+        </td>
+        <td class="nowrap">{{ item.activity.start_at|dt }}</td>
+        <td class="muted nowrap">{{ item.registration.created_at|dt }}</td>
+        <td>
+          {% set s = stats[item.activity.activity_id] %}
+          <span class="badge {{ 'badge--rejected' if s.is_full else 'badge--approved' }}">
+            剩余 {{ s.remaining }} / {{ item.activity.capacity }}
+          </span>
+        </td>
+        <td>
+          <div class="actions">
+            <form method="post" action="{{ url_for('admin.approve', registration_id=item.registration.registration_id) }}">
+              <input type="hidden" name="activity_id" value="{{ selected_activity or '' }}">
+              <button class="btn btn--primary btn--sm" type="submit">批准</button>
+            </form>
+            <form method="post" action="{{ url_for('admin.reject', registration_id=item.registration.registration_id) }}"
+                  onsubmit="return confirm('确认拒绝该报名申请？');">
+              <input type="hidden" name="activity_id" value="{{ selected_activity or '' }}">
+              <button class="btn btn--danger btn--sm" type="submit">拒绝</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty">
+  <h2>没有待审核的申请</h2>
+  <p>审核类活动的新申请会出现在这里。</p>
+</div>
+{% endif %}
+{% endblock %}

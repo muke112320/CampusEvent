@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{{ "新建活动" if mode == "create" else "编辑活动" }}{% endblock %}
+{% block content %}
+{% set v_title = form.get('title') or (activity.title if activity else '') %}
+{% set v_category = form.get('category') or (activity.category if activity else '') %}
+{% set v_location = form.get('location') or (activity.location if activity else '') %}
+{% set v_description = form.get('description') or (activity.description if activity else '') %}
+{% set v_capacity = form.get('capacity') or (activity.capacity if activity else 30) %}
+{% set v_start = form.get('start_at') or ((activity.start_at|dt_input) if activity else '') %}
+{% set v_policy = form.get('policy_type') or ((activity.policy_type.value) if activity else 'direct') %}
+
+<div class="breadcrumb">
+  <a href="{{ url_for('activities.index') }}">活动广场</a>
+  <span class="muted"> / {{ "新建活动" if mode == "create" else "编辑活动" }}</span>
+</div>
+
+<section class="page-head">
+  <div>
+    <p class="eyebrow">ADMIN CONSOLE</p>
+    <h1>{{ "新建活动" if mode == "create" else "编辑活动" }}</h1>
+    <p class="lead">活动名称、类型、时间、地点、人数上限与报名方式均为必填。已有报名的活动不能修改报名方式。</p>
+  </div>
+</section>
+
+<form class="card" method="post"
+      action="{{ url_for('activities.create') if mode == 'create' else url_for('activities.update', activity_id=activity.activity_id) }}">
+  <div class="form-grid">
+    <div class="field">
+      <label for="title">活动名称</label>
+      <input id="title" type="text" name="title" maxlength="100" value="{{ v_title }}" placeholder="例如：迎新志愿者招募" required>
+      <span class="hint">1—100 字</span>
+    </div>
+    <div class="field">
+      <label for="category">活动类型</label>
+      <input id="category" type="text" name="category" maxlength="40" value="{{ v_category }}" placeholder="例如：志愿服务、讲座沙龙" required>
+      <span class="hint">1—40 字</span>
+    </div>
+    <div class="field">
+      <label for="start_at">活动开始时间</label>
+      <input id="start_at" type="datetime-local" name="start_at" value="{{ v_start }}" required>
+      <span class="hint">学生只能在活动开始前报名</span>
+    </div>
+    <div class="field">
+      <label for="location">活动地点</label>
+      <input id="location" type="text" name="location" maxlength="80" value="{{ v_location }}" placeholder="例如：大学生活动中心 101" required>
+      <span class="hint">1—80 字</span>
+    </div>
+    <div class="field">
+      <label for="capacity">人数上限</label>
+      <input id="capacity" type="number" name="capacity" min="1" max="500" value="{{ v_capacity }}" required>
+      <span class="hint">1—500 的正整数；不得小于已通过人数</span>
+    </div>
+    <div class="field">
+      <label for="policy_type">报名方式</label>
+      <select id="policy_type" name="policy_type" required>
+        {% for policy in policies %}
+        <option value="{{ policy.policy_type.value }}" {% if v_policy == policy.policy_type.value %}selected{% endif %}>{{ policy.display_name }}</option>
+        {% endfor %}
+      </select>
+      <span class="hint">决定报名后的状态流转</span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="description">活动描述</label>
+    <textarea id="description" name="description" maxlength="1000" placeholder="活动内容、参与要求、注意事项等">{{ v_description }}</textarea>
+    <span class="hint">可选，最多 1000 字</span>
+  </div>
+
+  <div class="policy-note">
+    {% for policy in policies %}
+    <div>
+      <strong>{{ policy.display_name }}</strong>
+      {{ policy.description }}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="form-actions">
+    <button class="btn btn--primary" type="submit">{{ "创建活动" if mode == "create" else "保存修改" }}</button>
+    <a class="btn" href="{{ url_for('activities.detail', activity_id=activity.activity_id) if activity else url_for('activities.index') }}">取消</a>
+  </div>
+</form>
+{% endblock %}

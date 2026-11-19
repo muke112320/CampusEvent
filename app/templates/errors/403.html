@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}没有权限{% endblock %}
+{% block content %}
+<div class="empty">
+  <p class="eyebrow">403</p>
+  <h2>没有访问权限</h2>
+  <p>该功能仅对管理员开放，请切换管理员演示账号后再试。</p>
+  <a class="btn btn--primary" href="{{ url_for('activities.index') }}">返回活动广场</a>
+</div>
+{% endblock %}

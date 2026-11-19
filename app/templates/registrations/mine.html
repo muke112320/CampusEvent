@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}我的报名{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">MY REGISTRATIONS</p>
+    <h1>我的报名</h1>
+    <p class="lead">查看报名状态与历史记录。待审核、已通过的报名可以取消，取消后名额释放。</p>
+  </div>
+  <a class="btn btn--ghost" href="{{ url_for('activities.index') }}">返回活动广场</a>
+</section>
+
+{% if details %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>活动</th><th>活动时间</th><th>状态</th><th>报名时间</th><th>备注</th><th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in details %}
+      <tr>
+        <td>
+          <a href="{{ url_for('activities.detail', activity_id=item.activity.activity_id) }}"><strong>{{ item.activity.title }}</strong></a>
+          <div class="muted small">{{ item.activity.category }} · {{ item.activity.policy_type.label }}</div>
+        </td>
+        <td class="nowrap">{{ item.activity.start_at|dt }}</td>
+        <td><span class="badge badge--{{ item.registration.status.value }}">{{ item.registration.status.label }}</span></td>
+        <td class="muted nowrap">{{ item.registration.created_at|dt }}</td>
+        <td class="muted small">{{ item.registration.note or "—" }}</td>
+        <td>
+          {% if item.registration.is_active %}
+          <form method="post" action="{{ url_for('registrations.cancel', registration_id=item.registration.registration_id) }}"
+                onsubmit="return confirm('确认取消这条报名？');">
+            <button class="btn btn--danger btn--sm" type="submit">取消报名</button>
+          </form>
+          {% else %}
+          <a class="btn btn--ghost btn--sm" href="{{ url_for('activities.detail', activity_id=item.activity.activity_id) }}">查看活动</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty">
+  <h2>还没有报名记录</h2>
+  <p>去<a href="{{ url_for('activities.index') }}">活动广场</a>看看有哪些活动可以参加。</p>
+</div>
+{% endif %}
+{% endblock %}

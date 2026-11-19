@@ -1,0 +1,17 @@
+[Unit]
+Description=CampusEvent Flask application (gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=campusevent
+Group=campusevent
+WorkingDirectory=/opt/campusevent
+Environment="PATH=/opt/campusevent/.venv/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/opt/campusevent/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 --access-logfile - wsgi:app
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

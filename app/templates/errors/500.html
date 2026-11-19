@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}系统错误{% endblock %}
+{% block content %}
+<div class="empty">
+  <p class="eyebrow">500</p>
+  <h2>系统暂时无法处理该请求</h2>
+  <p>请稍后重试；如果问题持续存在，请查看应用日志定位原因。</p>
+  <a class="btn btn--primary" href="{{ url_for('activities.index') }}">返回活动广场</a>
+</div>
+{% endblock %}

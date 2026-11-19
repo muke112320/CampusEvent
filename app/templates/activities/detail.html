@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}{{ activity.title }}{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('activities.index') }}">活动广场</a>
+  <span class="muted"> / {{ activity.title }}</span>
+</div>
+
+<article class="card detail-card">
+  <div class="detail-head">
+    <div>
+      <div class="activity-card__top">
+        <span class="tag">{{ activity.category }}</span>
+        <span class="tag tag--policy">{{ activity.policy_type.label }}</span>
+        <span class="tag tag--ghost">编号 {{ activity.activity_id }}</span>
+      </div>
+      <h1>{{ activity.title }}</h1>
+      <p class="lead">{{ activity.description or "暂无活动描述" }}</p>
+    </div>
+
+    <div class="detail-actions">
+      {% if g.user.is_admin %}
+        <a class="btn btn--primary" href="{{ url_for('activities.edit', activity_id=activity.activity_id) }}">编辑活动</a>
+        <a class="btn" href="{{ url_for('admin.approvals', activity_id=activity.activity_id) }}">本活动审批</a>
+        <form method="post" action="{{ url_for('activities.delete', activity_id=activity.activity_id) }}"
+              onsubmit="return confirm('确认删除该活动？删除后不可恢复。');">
+          <button class="btn btn--danger btn--block" type="submit">删除活动</button>
+        </form>
+      {% elif my_registration and my_registration.is_active %}
+        <span class="badge badge--{{ my_registration.status.value }}">我的报名：{{ my_registration.status.label }}</span>
+        <form method="post" action="{{ url_for('registrations.cancel', registration_id=my_registration.registration_id) }}"
+              onsubmit="return confirm('确认取消报名？取消后名额将释放。');">
+          <input type="hidden" name="next" value="{{ request.path }}">
+          <button class="btn btn--danger btn--block" type="submit">取消报名</button>
+        </form>
+      {% elif activity.start_at <= now %}
+        <button class="btn" type="button" disabled>活动已开始，报名截止</button>
+        {% if my_registration %}
+        <span class="badge badge--{{ my_registration.status.value }}">上次报名：{{ my_registration.status.label }}</span>
+        {% endif %}
+      {% else %}
+        {% if my_registration %}
+        <span class="badge badge--{{ my_registration.status.value }}">上次报名：{{ my_registration.status.label }}</span>
+        {% endif %}
+        <form method="post" action="{{ url_for('registrations.register', activity_id=activity.activity_id) }}">
+          <button class="btn btn--primary btn--block" type="submit">
+            {{ "申请报名（需审核）" if activity.policy_type.value == "review" else "立即报名" }}
+          </button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <dl class="detail-meta">
+    <div><dt>活动时间</dt><dd>{{ activity.start_at|dt }}</dd></div>
+    <div><dt>活动地点</dt><dd>{{ activity.location }}</dd></div>
+    <div><dt>人数上限</dt><dd>{{ activity.capacity }} 人</dd></div>
+    <div><dt>报名方式</dt><dd>{{ activity.policy_type.label }}</dd></div>
+  </dl>
+
+  {% if activity.policy_type.value == "review" %}
+  <div class="notice">该活动采用<strong>管理员审核</strong>：提交后状态为“待审核”，不占用名额；管理员批准时再次检查剩余名额，批准后转为“已通过”。</div>
+  {% else %}
+  <div class="notice">该活动采用<strong>直接报名</strong>：名额充足时立即通过并占用名额；名额已满时报名失败。</div>
+  {% endif %}
+</article>
+
+<div class="section-title">
+  <h2>报名统计</h2>
+  <span class="muted small">按“已通过”统计名额占用，待审核不占名额</span>
+</div>
+<div class="stat-grid">
+  <div class="stat">
+    <div class="stat__label">已通过</div>
+    <div class="stat__value">{{ stats.approved }}</div>
+    <div class="stat__hint">占用 {{ stats.approved }} / {{ activity.capacity }} 个名额</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">待审核</div>
+    <div class="stat__value">{{ stats.pending }}</div>
+    <div class="stat__hint">等待管理员审批</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">剩余名额</div>
+    <div class="stat__value">{{ stats.remaining }}</div>
+    <div class="stat__hint">{{ "名额已满" if stats.is_full else "仍可报名" }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">人数上限</div>
+    <div class="stat__value">{{ activity.capacity }}</div>
+    <div class="stat__hint">创建活动时设定</div>
+  </div>
+</div>
+
+{% if g.user.is_admin %}
+  <div class="section-title">
+    <h2>报名记录</h2>
+    <span class="muted small">共 {{ participants|length }} 条</span>
+  </div>
+  {% if participants %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>学生</th><th>账号</th><th>状态</th><th>报名时间</th><th>备注</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in participants %}
+        <tr>
+          <td><strong>{{ item.student.name }}</strong></td>
+          <td class="mono">{{ item.student.student_id }}</td>
+          <td><span class="badge badge--{{ item.registration.status.value }}">{{ item.registration.status.label }}</span></td>
+          <td class="muted">{{ item.registration.created_at|dt }}</td>
+          <td class="muted small">{{ item.registration.note or "—" }}</td>
+          <td>
+            {% if item.registration.status.value == "pending" %}
+            <form method="post" action="{{ url_for('admin.approve', registration_id=item.registration.registration_id) }}">
+              <input type="hidden" name="activity_id" value="{{ activity.activity_id }}">
+              <button class="btn btn--primary btn--sm" type="submit">批准</button>
+            </form>
+            {% elif item.registration.status.value == "approved" and activity.start_at > now %}
+            <form method="post" action="{{ url_for('registrations.cancel', registration_id=item.registration.registration_id) }}"
+                  onsubmit="return confirm('管理员确认取消该学生的报名？');">
+              <input type="hidden" name="next" value="{{ request.path }}">
+              <button class="link-danger" type="submit">取消报名</button>
+            </form>
+            {% else %}
+            <span class="muted small">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty"><p style="margin:0">该活动暂无报名记录。</p></div>
+  {% endif %}
+{% else %}
+  {% if my_registration %}
+  <div class="section-title"><h2>我的报名</h2></div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center">
+      <div>
+        <span class="badge badge--{{ my_registration.status.value }}">{{ my_registration.status.label }}</span>
+        <p class="muted small" style="margin:8px 0 0">
+          报名编号 {{ my_registration.registration_id }} · 提交于 {{ my_registration.created_at|dt }}
+          {% if my_registration.note %} · 备注：{{ my_registration.note }}{% endif %}
+        </p>
+      </div>
+      <a class="btn btn--ghost btn--sm" href="{{ url_for('registrations.mine') }}">查看全部报名</a>
+    </div>
+  </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

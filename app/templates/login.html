@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}登录{% endblock %}
+{% block content %}
+<div class="login-shell">
+  <section class="login-hero">
+    <div>
+      <span class="tag">软件工程实验二</span>
+      <span class="tag">设计模式</span>
+      <span class="tag">需求变更</span>
+      <h1>校园活动<br>报名与管理系统</h1>
+      <p>CampusEvent 支持“直接报名”与“管理员审核”两类报名规则，报名结果通过站内消息与邮件双渠道通知。</p>
+      <ul class="login-points">
+        <li><span>1</span>策略模式封装报名规则，新增报名方式无需改动主流程</li>
+        <li><span>2</span>观察者模式解耦报名业务与站内通知</li>
+        <li><span>3</span>固定演示账号，无需注册与密码</li>
+      </ul>
+    </div>
+    <p class="small" style="color:rgba(255,255,255,.55);margin:0">Flask · SQLite · pytest</p>
+  </section>
+
+  <section class="login-panel">
+    <h2>选择演示账号</h2>
+    <p class="muted small" style="margin-top:4px">点击账号直接进入。管理员账号可创建活动与审批报名；学生账号可浏览活动与报名。</p>
+    <div class="account-list">
+      {% for account in accounts %}
+      <form method="post" action="{{ url_for('auth.login') }}">
+        <input type="hidden" name="username" value="{{ account.student_id }}">
+        <button type="submit" class="account-card">
+          <span class="account-card__name">
+            <strong>{{ account.name }}</strong>
+            <small>账号 {{ account.student_id }} · {{ account.email }}</small>
+          </span>
+          <span class="account-card__role {{ 'account-card__role--admin' if account.is_admin else '' }}">{{ account.role.label }}</span>
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+    <div class="notice notice--muted" style="margin-bottom:0">
+      教学演示系统使用固定账号、无密码认证，不涉及真实身份信息。
+    </div>
+  </section>
+</div>
+{% endblock %}

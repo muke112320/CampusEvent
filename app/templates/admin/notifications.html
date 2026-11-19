@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}通知台账{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">NOTIFICATION AUDIT</p>
+    <h1>通知台账</h1>
+    <p class="lead">记录每个领域事件向两个渠道的投递结果。通知失败只留痕，不影响已提交的报名记录。</p>
+  </div>
+</section>
+
+<div class="stat-grid" style="margin-bottom:24px">
+  <div class="stat">
+    <div class="stat__label">投递记录</div>
+    <div class="stat__value">{{ deliveries|length }}</div>
+    <div class="stat__hint">最近 80 条</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">失败投递</div>
+    <div class="stat__value">{{ failed_count }}</div>
+    <div class="stat__hint">可在下表查看错误原因</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">邮件出件箱</div>
+    <div class="stat__value">{{ outbox|length }}</div>
+    <div class="stat__hint">最近 20 封（模拟发送）</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">通知机制</div>
+    <div class="stat__value" style="font-size:18px">站内 + 邮件</div>
+    <div class="stat__hint">观察者模式，两个独立订阅者</div>
+  </div>
+</div>
+
+<div class="section-title"><h2>投递记录</h2><span class="muted small">唯一约束 (event_id, subscriber, student_id) 防止重复通知</span></div>
+{% if deliveries %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>时间</th><th>事件</th><th>渠道</th><th>学生</th><th>状态</th><th>错误</th></tr>
+    </thead>
+    <tbody>
+      {% for row in deliveries %}
+      <tr>
+        <td class="muted nowrap">{{ row.created_at|dt }}</td>
+        <td class="small">{{ row.event_type|event_label }}<div class="mono muted">{{ row.event_id[:18] }}…</div></td>
+        <td>{{ row.channel }}</td>
+        <td class="mono">{{ row.student_id }}</td>
+        <td><span class="badge badge--{{ row.status }}">{{ {"sent": "已发送", "failed": "失败", "pending": "处理中"}.get(row.status, row.status) }}</span></td>
+        <td class="small" style="color:var(--red)">{{ row.error or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty"><p style="margin:0">还没有投递记录，先让学生报名一次。</p></div>
+{% endif %}
+
+<div class="section-title"><h2>邮件出件箱</h2><span class="muted small">演示环境不真实发送邮件，内容落库可核查</span></div>
+{% if outbox %}
+<div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>时间</th><th>收件人</th><th>主题</th><th>传输编号</th></tr></thead>
+    <tbody>
+      {% for mail in outbox %}
+      <tr>
+        <td class="muted nowrap">{{ mail.created_at }}</td>
+        <td class="mono">{{ mail.to_address }}</td>
+        <td>{{ mail.subject }}</td>
+        <td class="mono muted">{{ mail.transport_id }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty"><p style="margin:0">出件箱为空。</p></div>
+{% endif %}
+{% endblock %}
