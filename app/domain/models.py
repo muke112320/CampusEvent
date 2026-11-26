@@ -28,10 +28,15 @@ class PolicyType(str, Enum):
 
     DIRECT = "direct"
     REVIEW = "review"
+    GRADE_LIMITED = "grade_limited"
 
     @property
     def label(self) -> str:
-        return {"direct": "直接报名", "review": "管理员审核"}[self.value]
+        return {
+            "direct": "直接报名",
+            "review": "管理员审核",
+            "grade_limited": "年级限定报名",
+        }[self.value]
 
 
 class RegistrationStatus(str, Enum):
@@ -64,14 +69,25 @@ def new_id(prefix: str) -> str:
 
 @dataclass(frozen=True)
 class Student:
+    """学生。grade 取值 1—4（大一至大四），change-v2 用于年级限定报名规则。"""
+
     student_id: str
     name: str
     email: str
     role: Role = Role.STUDENT
+    grade: int = 1
+
+    def __post_init__(self) -> None:
+        if not 1 <= self.grade <= 4:
+            raise ValueError("年级必须是 1—4")
 
     @property
     def is_admin(self) -> bool:
         return self.role is Role.ADMIN
+
+    @property
+    def grade_label(self) -> str:
+        return {1: "大一", 2: "大二", 3: "大三", 4: "大四"}.get(self.grade, f"{self.grade} 年级")
 
 
 @dataclass(frozen=True)

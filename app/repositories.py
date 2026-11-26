@@ -155,12 +155,13 @@ class StudentRepository:
             name=row["name"],
             email=row["email"],
             role=Role(row["role"]),
+            grade=int(row["grade"]),
         )
 
     def add(self, student: Student) -> None:
         self.connection.execute(
-            "INSERT INTO students (student_id, name, email, role) VALUES (?, ?, ?, ?)",
-            (student.student_id, student.name, student.email, student.role.value),
+            "INSERT INTO students (student_id, name, email, role, grade) VALUES (?, ?, ?, ?, ?)",
+            (student.student_id, student.name, student.email, student.role.value, student.grade),
         )
 
     def get(self, student_id: str) -> Student | None:
@@ -214,6 +215,7 @@ class RegistrationRepository:
             name=row["student_name"],
             email=row["student_email"],
             role=Role(row["student_role"]),
+            grade=int(row["student_grade"]),
         )
         registration = Registration(
             registration_id=row["registration_id"],
@@ -231,7 +233,8 @@ class RegistrationRepository:
                r.status AS reg_status, r.note,
                r.created_at AS reg_created_at, r.updated_at AS reg_updated_at,
                {_ACTIVITY_COLUMNS},
-               s.name AS student_name, s.email AS student_email, s.role AS student_role
+               s.name AS student_name, s.email AS student_email, s.role AS student_role,
+               s.grade AS student_grade
           FROM registrations r
           JOIN activities a ON a.activity_id = r.activity_id
           JOIN students s ON s.student_id = r.student_id
@@ -425,6 +428,71 @@ class EmailOutboxRepository:
         return self.connection.execute(
             "SELECT * FROM email_outbox ORDER BY created_at DESC LIMIT ?", (limit,)
         ).fetchall()
+
+
+class EmailDeliveryRepository:
+    """邮件发送台账（change-v2 / CR-02）。
+
+    每封模拟邮件记录收件人、主题、内容、状态与时间；同一事件对同一学生
+    只允许一条记录，从数据层保证"同一业务事件不重复发送"。
+    """
+
+    def __init__(self, connection: sqlite3.Connection):
+        self.connection = connection
+
+    def record(
+        self,
+        *,
+        email_id: str,
+        event_id: str,
+        student_id: str,
+        to_address: str,
+        subject: str,
+        body: str,
+        status: str,
+        error: str | None,
+        sent_at: datetime,
+        transport_id: str | None,
+    ) -> bool:
+        cursor = self.connection.execute(
+            """
+            INSERT OR IGNORE INTO email_deliveries
+                (email_id, event_id, student_id, to_address, subject, body,
+                 status, error, sent_at, transport_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                email_id,
+                event_id,
+                student_id,
+                to_address,
+                subject,
+                body,
+                status,
+                error,
+                _iso(sent_at),
+                transport_id,
+            ),
+        )
+        return cursor.rowcount == 1
+
+    def find_for_event(self, event_id: str, student_id: str) -> sqlite3.Row | None:
+        return self.connection.execute(
+            "SELECT * FROM email_deliveries WHERE event_id = ? AND student_id = ?",
+            (event_id, student_id),
+        ).fetchone()
+
+    def list_recent(self, limit: int = 20) -> list[sqlite3.Row]:
+        return self.connection.execute(
+            "SELECT * FROM email_deliveries ORDER BY sent_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+
+    def count_by_status(self, status: str) -> int:
+        return int(
+            self.connection.execute(
+                "SELECT COUNT(*) AS n FROM email_deliveries WHERE status = ?", (status,)
+            ).fetchone()["n"]
+        )
 
 
 class NotificationDeliveryRepository:

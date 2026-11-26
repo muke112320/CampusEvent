@@ -102,6 +102,28 @@ class ReviewRegistrationPolicy(RegistrationPolicy):
         return PolicyDecision.approve(RegistrationStatus.PENDING)
 
 
+class GradeLimitedRegistrationPolicy(DirectRegistrationPolicy):
+    """年级限定直接报名（change-v2 / CR-01）：仅大二、大三可报名。
+
+    复用 DirectRegistrationPolicy 的容量判定：先校验年级，再走父类的
+    "有名额立即通过、满员拒绝"。公共规则（活动时间、重复报名）仍由
+    模板方法 evaluate 统一执行，因此本策略只需关心年级这一变化点。
+    """
+
+    policy_type = PolicyType.GRADE_LIMITED
+    display_name = "年级限定报名"
+    description = "仅限大二、大三学生报名；名额充足时立即通过，满员后拒绝，其他年级会收到明确提示。"
+
+    ALLOWED_GRADES = frozenset({2, 3})
+
+    def decide(self, ctx: RegistrationContext) -> PolicyDecision:
+        if ctx.student.grade not in self.ALLOWED_GRADES:
+            return PolicyDecision.deny(
+                f"该活动仅限大二、大三学生报名（你的年级：{ctx.student.grade_label}）"
+            )
+        return super().decide(ctx)
+
+
 class PolicyRegistry:
     """策略注册表：按活动的 policy_type 选择具体策略。"""
 
@@ -122,10 +144,16 @@ class PolicyRegistry:
 
     def all(self) -> list[RegistrationPolicy]:
         # 保持稳定顺序，供界面下拉框使用
-        order = [PolicyType.DIRECT, PolicyType.REVIEW]
+        order = [PolicyType.DIRECT, PolicyType.REVIEW, PolicyType.GRADE_LIMITED]
         return [self._policies[t] for t in order if t in self._policies]
 
 
 def default_policy_registry() -> PolicyRegistry:
-    """基线版本支持两种报名方式。"""
-    return PolicyRegistry([DirectRegistrationPolicy(), ReviewRegistrationPolicy()])
+    """change-v2 支持三种报名方式：直接、审核、年级限定。"""
+    return PolicyRegistry(
+        [
+            DirectRegistrationPolicy(),
+            ReviewRegistrationPolicy(),
+            GradeLimitedRegistrationPolicy(),
+        ]
+    )

@@ -44,7 +44,9 @@
         {% endif %}
         <form method="post" action="{{ url_for('registrations.register', activity_id=activity.activity_id) }}">
           <button class="btn btn--primary btn--block" type="submit">
-            {{ "申请报名（需审核）" if activity.policy_type.value == "review" else "立即报名" }}
+            {% if activity.policy_type.value == "review" %}申请报名（需审核）
+            {% elif activity.policy_type.value == "grade_limited" %}立即报名（仅限大二/大三）
+            {% else %}立即报名{% endif %}
           </button>
         </form>
       {% endif %}
@@ -60,6 +62,8 @@
 
   {% if activity.policy_type.value == "review" %}
   <div class="notice">该活动采用<strong>管理员审核</strong>：提交后状态为“待审核”，不占用名额；管理员批准时再次检查剩余名额，批准后转为“已通过”。</div>
+  {% elif activity.policy_type.value == "grade_limited" %}
+  <div class="notice">该活动采用<strong>年级限定报名</strong>：仅限大二、大三学生报名，其他年级会收到明确提示；名额充足时立即通过，满员时报名失败。</div>
   {% else %}
   <div class="notice">该活动采用<strong>直接报名</strong>：名额充足时立即通过并占用名额；名额已满时报名失败。</div>
   {% endif %}

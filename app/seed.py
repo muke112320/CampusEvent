@@ -21,11 +21,11 @@ def _at(day_offset: int, hour: int = 14) -> datetime:
 
 def _demo_students() -> list[Student]:
     return [
-        Student("admin", "系统管理员", "admin@campus.edu.cn", Role.ADMIN),
-        Student("s1", "张小明", "zhangxiaoming@campus.edu.cn"),
-        Student("s2", "李小红", "lixiaohong@campus.edu.cn"),
-        Student("s3", "王大力", "wangdali@campus.edu.cn"),
-        Student("s4", "赵晓雨", "zhaoxiaoyu@campus.edu.cn"),
+        Student("admin", "系统管理员", "admin@campus.edu.cn", Role.ADMIN, grade=4),
+        Student("s1", "张小明", "zhangxiaoming@campus.edu.cn", grade=2),
+        Student("s2", "李小红", "lixiaohong@campus.edu.cn", grade=3),
+        Student("s3", "王大力", "wangdali@campus.edu.cn", grade=1),
+        Student("s4", "赵晓雨", "zhaoxiaoyu@campus.edu.cn", grade=4),
     ]
 
 
@@ -71,6 +71,16 @@ def _demo_activities() -> list[Activity]:
             "location": "艺术楼 204",
             "capacity": 1,
             "policy": PolicyType.REVIEW,
+        },
+        {
+            "id": "ACT-DEMO-05",
+            "title": "职业规划工作坊（大二/大三限定）",
+            "category": "讲座沙龙",
+            "description": "面向大二、大三学生的职业规划工作坊，大一、大四学生报名时会被明确拒绝。",
+            "start_at": _at(7, hour=15),
+            "location": "就业指导中心 302",
+            "capacity": 30,
+            "policy": PolicyType.GRADE_LIMITED,
         },
     ]
     return [

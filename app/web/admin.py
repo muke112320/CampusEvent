@@ -73,5 +73,7 @@ def notifications():
         "admin/notifications.html",
         deliveries=container.deliveries.list_recent(),
         outbox=container.outbox.list_recent(),
+        emails=container.email_deliveries.list_recent(),
+        email_failed=container.email_deliveries.count_by_status("failed"),
         failed_count=container.deliveries.count_failed(),
     )

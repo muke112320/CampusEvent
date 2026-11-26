@@ -27,7 +27,7 @@ from ..domain.events import (
 )
 from ..domain.models import Activity, Message, Student, new_id
 from ..repositories import MessageRepository, NotificationDeliveryRepository
-from .email import EmailGateway
+from .mock_email import MockEmailSender
 
 NOTIFIABLE_EVENTS = (
     RegistrationSubmitted,
@@ -39,6 +39,7 @@ NOTIFIABLE_EVENTS = (
 
 @dataclass(frozen=True)
 class NotificationContent:
+    event_id: str
     category: str
     subject: str
     body: str
@@ -63,6 +64,7 @@ class NotificationContentBuilder:
 
         if isinstance(event, RegistrationSubmitted):
             return NotificationContent(
+                event_id=event.event_id,
                 category="registration_submitted",
                 subject=f"报名申请已提交：{title}",
                 body=f"你已提交活动「{title}」的报名申请，当前状态：待审核。{tail}管理员审核后将再次通知你。",
@@ -77,6 +79,7 @@ class NotificationContentBuilder:
                 prefix = "报名成功"
                 body = f"报名成功！你已报名活动「{title}」，当前状态：已通过。{tail}请按时参加。"
             return NotificationContent(
+                event_id=event.event_id,
                 category="registration_approved",
                 subject=f"{prefix}：{title}",
                 body=body,
@@ -85,6 +88,7 @@ class NotificationContentBuilder:
             )
         if isinstance(event, RegistrationRejected):
             return NotificationContent(
+                event_id=event.event_id,
                 category="registration_rejected",
                 subject=f"报名未通过：{title}",
                 body=f"很遗憾，你报名的活动「{title}」未通过审核，当前状态：已拒绝。{tail}",
@@ -93,6 +97,7 @@ class NotificationContentBuilder:
             )
         if isinstance(event, RegistrationCancelled):
             return NotificationContent(
+                event_id=event.event_id,
                 category="registration_cancelled",
                 subject=f"报名已取消：{title}",
                 body=f"你已取消活动「{title}」的报名，当前状态：已取消。{tail}",
@@ -181,24 +186,24 @@ class EmailNotificationSubscriber(NotificationSubscriber):
     name = "email"
     channel = "邮件"
 
-    def __init__(self, gateway: EmailGateway, *args, **kwargs):
+    def __init__(self, sender: MockEmailSender, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._gateway = gateway
+        self._sender = sender
 
     def deliver(self, student: Student, content: NotificationContent) -> None:
-        self._gateway.send(student.email, content.subject, content.body)
+        self._sender.send(content.event_id, student, content.subject, content.body)
 
 
 def build_subscribers(
     builder: NotificationContentBuilder,
     messages: MessageRepository,
     deliveries: NotificationDeliveryRepository,
-    gateway: EmailGateway,
+    sender: MockEmailSender,
     clock: Clock,
     logger: logging.Logger | None = None,
 ) -> Sequence[NotificationSubscriber]:
     """渠道装配点。新增渠道时只需在此追加一个订阅者。"""
     return [
         InSiteNotificationSubscriber(messages, builder, deliveries, clock, logger),
-        EmailNotificationSubscriber(gateway, builder, deliveries, clock, logger),
+        EmailNotificationSubscriber(sender, builder, deliveries, clock, logger),
     ]
