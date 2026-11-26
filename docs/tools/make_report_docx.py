@@ -341,8 +341,9 @@ def build() -> None:
     body(doc, "SQLite 不支持直接修改 CHECK 约束，迁移采用“建新表→复制数据→删旧表→重命名”：students 增加 grade 列"
               "（默认 1，CHECK 1—4），演示账号按语义回填；activities 重建并允许 grade_limited；新增 email_deliveries "
               "邮件台账与 (event_id, student_id) 唯一约束。整个过程在显式事务内完成，异常整体回滚，版本号写为 2。")
-    body(doc, "实现中真实遇到两个问题：waitlist 时代的旧库结构不能复用（本次改为从 baseline 备份恢复后再迁移），"
-              "以及 SQLite 添加带 CHECK 的列只能在建列时完成——迁移顺序与事务边界必须一次写对。")
+    body(doc, "实现中真实遇到两个问题：服务器上旧的数据库结构与本次 v2 迁移不一致，不能直接复用"
+              "（改为从升级前备份恢复 baseline 数据后再迁移）；SQLite 添加带 CHECK 的列只能在建列时完成——"
+              "迁移顺序与事务边界必须一次写对。")
 
     # ------------------------------------------------------------------
     heading(doc, "四、测试与回归")

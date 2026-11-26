@@ -19,7 +19,7 @@
 | 2026-11-26 / CR-01 实现 | “实现 grade 字段、第三种报名方式、迁移与页面；保留原有直接/审核行为。” | 生成 `GradeLimitedRegistrationPolicy`、grade 列迁移、种子年级与年级限定示例活动；初版页面按钮仍写“立即报名” | 修改详情页按钮与提示；确认 `RegistrationService` 无 diff，`pytest` 基线 29 条仍全过 |
 | 2026-11-26 / CR-02 现状核对 | “先核对初版邮件能力，再决定 CR-02 怎么落地；不要重复造一个邮件渠道。” | 初版已有 `email_outbox` 与邮件订阅者，AI 一度建议“声明 CR-02 已满足、不改代码” | 拒绝“零改动交差”：官方要求 MockEmailSender 并记录收件人/主题/内容/状态/时间；改为**正式化邮件通道**并补测试 |
 | 2026-11-26 / CR-02 实现 | “新增 MockEmailSender 与邮件台账；站内通知和业务服务不改，失败不回滚、不重复发送。” | 新增 `mock_email.py`、`EmailDeliveryRepository`、`email_deliveries` 迁移；`NotificationContent` 增加 event_id；删除旧出件箱/故障网关 | 保留 `EMAIL_GATEWAY=failing` 兼容旧故障测试；`InSiteNotificationSubscriber` 与 `RegistrationService` 均无修改 |
-| 2026-11-26 / 迁移问题 | “把 v1 数据迁到 v2，保留活动/报名，并让旧库可升级。” | 服务器上残留自拟 V2 的 schema（version=2、带 waitlist 列），直接迁移会跳过；SQLite 也不能 ALTER 已有 CHECK | 从升级前备份恢复 baseline 数据库（version=1）再迁移；activities 用“建新表→复制→重命名”，整体事务化。写入 docs/07 风险表 |
+| 2026-11-26 / 迁移问题 | “把 v1 数据迁到 v2，保留活动/报名，并让旧库可升级。” | 服务器上残留自拟变更的 schema（version=2、含自拟字段），直接迁移会跳过；SQLite 也不能 ALTER 已有 CHECK | 从升级前备份恢复 baseline 数据库（version=1）再迁移；activities 用“建新表→复制→重命名”，整体事务化。写入 docs/07 风险表 |
 | 2026-11-26 / 回归 | “跑全量测试，统计新增类、修改文件与测试数；确认 C1—C10 无回归。” | 41 passed（29 基线 + 12 变更）；新增 4 类、删除 3 类；核心业务服务 0 修改；源码 +281 行 | 复核 `git diff --numstat baseline-v1..change-v2` 与类清单，填写 docs/09 可维护性对照 |
 | 2026-11-26 / 文档与截图 | “两版 UML、时序图、影响分析、回归表和 5—8 页总结都要与代码一致；图不许沿用旧变更。” | 重写 `make_diagrams.py` 的变更分支（年级策略、MockEmailSender），生成 4 张类图、5 张时序图；用真实页面截取年级提示与邮件台账 | 逐项核对 dataclass 字段与页面文案；项目总结转 PDF 为 7 页，无空页与溢出 |
 | 2026-11-26 / 云端部署 | “恢复 baseline 数据库后部署新 V2，验证迁移、年级回填与既有应用。” | 上传新代码前先恢复 v1 数据库；重启后自动迁移。首次 `tar` 覆盖因目录属主失败，改用 sudo 解包并 chown | `schema_version=2`；s1=大二、s2=大三、s3=大一、s4=大四；4 活动/5 报名保留；公网登录/表单/台账 200，StudyTask 根路径 200 |
