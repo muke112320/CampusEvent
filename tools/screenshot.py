@@ -37,14 +37,14 @@ def find_browser() -> str:
     raise SystemExit("未找到 Edge/Chrome 可执行文件")
 
 
-def session_cookie(base: str, username: str) -> str:
+def session_cookie(base: str, username: str) -> tuple[str, str]:
     jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
     body = urllib.parse.urlencode({"username": username}).encode()
     opener.open(base + "/login", body, timeout=15).read()
     for cookie in jar:
-        if cookie.name == "session":
-            return cookie.value
+        if cookie.name.endswith("session"):
+            return cookie.name, cookie.value
     raise RuntimeError(f"登录 {username} 未取得 session cookie")
 
 
@@ -98,7 +98,7 @@ def wait_ready(cdp: CDP, timeout: float = 15) -> None:
     raise RuntimeError("页面加载超时")
 
 
-def capture(base: str, path: str, cookie: str, output: Path, port: int) -> None:
+def capture(base: str, path: str, cookie: tuple[str, str], output: Path, port: int) -> None:
     target = http_json(f"http://127.0.0.1:{port}/json/new?about:blank", method="PUT")
     cdp = CDP(target["webSocketDebuggerUrl"])
     try:
@@ -106,7 +106,7 @@ def capture(base: str, path: str, cookie: str, output: Path, port: int) -> None:
         cdp.send("Network.enable")
         cdp.send(
             "Network.setCookie",
-            {"name": "session", "value": cookie, "url": base + "/", "path": "/"},
+            {"name": cookie[0], "value": cookie[1], "url": base + "/", "path": "/"},
         )
         cdp.send("Emulation.setDeviceMetricsOverride",
                  {"width": 1440, "height": 1000, "deviceScaleFactor": 1, "mobile": False})
@@ -169,11 +169,11 @@ def main() -> None:
     )
     try:
         wait_for_debugger(args.port)
-        cookies: dict[str, str] = {}
+        cookies: dict[str, tuple[str, str]] = {}
         for spec in args.shot:
             name, _, target = spec.partition("=")
             path, _, username = target.rpartition("@")
-            cookie = ""
+            cookie: tuple[str, str] = ("", "")
             if username:
                 if username not in cookies:
                     cookies[username] = session_cookie(args.base, username)

@@ -1,10 +1,19 @@
-﻿# UML 类图与职责划分（baseline-v1）
+# UML 类图与职责划分（baseline-v1 / change-v2）
 
-类图分为两个视图：**领域模型视图**回答“系统有哪些业务概念、它们如何关联”；**设计类图视图**回答“职责如何分配到类/接口、变化点被隔离在哪里”。两张图共同覆盖指导书 B.3 的检查要求。
+本文件同时给出**初版**与**变更版**的类图，共四张：领域模型视角回答“系统有哪些业务概念、它们如何关联”，设计类图视角回答“职责如何分配到类/接口、变化点被隔离在哪里”。变更版图中橙色元素为教师变更单 CR-01 / CR-02 引入的新增或修改点。
+
+| 视图 | 初版（baseline-v1） | 变更版（change-v2） |
+| --- | --- | --- |
+| 领域模型类图 | `images/class_domain_baseline.png` | `images/class_domain_change.png` |
+| 设计类图 | `images/class_design_baseline.png` | `images/class_design_change.png` |
+
+---
+
+# 第一部分：初版（baseline-v1）
 
 ## 1. 领域模型类图
 
-![领域模型类图](images/class_domain_baseline.png)
+![初版领域模型类图](images/class_domain_baseline.png)
 
 ### 1.1 实体与值对象
 
@@ -33,7 +42,7 @@
 
 ## 2. 设计类图
 
-![设计类图](images/class_design_baseline.png)
+![初版设计类图](images/class_design_baseline.png)
 
 ### 2.1 分层与依赖方向
 
@@ -50,7 +59,7 @@ repositories（SQLite 实现，被容器注入服务）
 - `domain/` 不导入 Flask、sqlite3、requests，可直接单元测试。
 - `web/` 不直接操作 SQL；所有业务动作经服务。
 - 服务依赖 `PolicyRegistry` 与 `EventBus` 抽象，而非某个具体策略或渠道。
-- 仓储实现被 `container.py` 注入；测试可替换邮件网关为故障注入实现。
+- 仓储实现被 `container.py` 注入；测试可替换邮件发送器为故障注入实现。
 
 ### 2.2 关键类职责
 
@@ -83,33 +92,142 @@ repositories（SQLite 实现，被容器注入服务）
 - 事务边界：服务先提交报名事务，再 `publish`；订阅者异常被 `EventBus` 捕获，写入投递台账。
 - 幂等：`notification_deliveries` 唯一约束 `(event_id, subscriber, student_id)`。
 
-### 2.5 SOLID 对照
+---
 
-| 原则 | 体现 | 反例（如果做错） |
+# 第二部分：变更版（change-v2）
+
+变更单见 `07_变更需求单与影响分析.md`。两项变更来自教师材料：
+
+- **CR-01 年级限定报名**：Student 增加 grade（1—4），新增“年级限定直接报名”，仅大二、大三可报名；
+- **CR-02 模拟邮件通知**：报名通过 / 审核通过或拒绝时，站内通知继续运行，同时由 MockEmailSender 记录邮件（收件人、主题、内容、状态、时间），失败只留痕、不重复发送。
+
+## 3. 变更版领域模型类图
+
+![变更版领域模型类图](images/class_domain_change.png)
+
+### 3.1 变更点清单
+
+| 元素 | 变更类型 | 变更内容 | 影响 |
+| --- | --- | --- | --- |
+| `Student.grade` | 新增字段 | 取值 1—4（大一至大四），构造时校验 | 年级限定策略的唯一新增输入 |
+| `Student.grade_label` | 新增属性 | 返回“大一/大二/大三/大四” | 拒绝提示可读性 |
+| `PolicyType` | 新增枚举值 | `GRADE_LIMITED = "grade_limited"` | 第三种报名方式；数据库 CHECK 扩展 |
+| `EmailDelivery` | 新增实体（审计） | email_id、event_id、student_id、to_address、subject、status、sent_at | CR-02 的邮件发送记录，不是报名实体 |
+| `Activity` / `Registration` / `RegistrationStatus` | 不变 | — | 原有直接报名、审核报名行为不受影响 |
+
+### 3.2 不变量
+
+1. **年级合法**：`grade ∈ {1,2,3,4}`，数据库 CHECK 与 `Student.__post_init__` 双重保证。
+2. **年级限定准入**：仅 `grade ∈ {2,3}` 可报名 `grade_limited` 活动；其他年级收到明确原因，且不产生报名记录。
+3. **公共约束不变**：活动必须未开始、同一学生同一活动最多一条有效报名、名额只统计已通过；年级策略同样受这些约束。
+4. **邮件幂等**：`email_deliveries` 以 `(event_id, student_id)` 唯一，同一业务事件对同一学生只发送一封。
+5. **失败不影响业务**：邮件发送失败只写 `status=failed` 与错误，不回滚已提交的报名。
+
+### 3.3 关系与边界
+
+- `Student 1 — 0..* EmailDelivery`：邮件记录按学生弱关联；即使学生或活动信息变化，历史邮件内容仍保留快照。
+- `EmailDelivery ..> 事件`：通过 `event_id` 关联领域事件，用于幂等与审计，不反向依赖报名服务。
+- 年级限定活动与普通活动共用 Activity 结构，没有新增活动子类；差异只体现在 `policy_type` 与对应策略。
+
+## 4. 变更版设计类图
+
+![变更版设计类图](images/class_design_change.png)
+
+### 4.1 新增与修改的类
+
+| 元素 | 变更类型 | 职责 | 说明 |
+| --- | --- | --- | --- |
+| `GradeLimitedRegistrationPolicy` | 新增类 | 先校验年级 ∈ {2,3}，再复用直接报名的容量判定 | **继承** `DirectRegistrationPolicy`，只覆写 `decide` |
+| `MockEmailSender` | 新增类 | `send(event_id, student, subject, body)`：写 `email_outbox` 与 `email_deliveries`，失败抛 `NotificationError` | 教师要求的 MockEmailSender；渠道实现，不反向依赖业务服务 |
+| `EmailReceipt` | 新增值对象 | 发送结果（transport_id、status、duplicate） | 便于测试与调用方判断重复 |
+| `EmailDeliveryRepository` | 新增仓储 | 邮件台账 record / find_for_event / list_recent / count_by_status | 唯一约束 `(event_id, student_id)` |
+| `EmailNotificationSubscriber` | 修改 | 改为调用 `MockEmailSender`，并把 `event_id` 带入发送 | 订阅者模板、站内订阅者不变 |
+| `NotificationContent` | 修改 | 增加 `event_id`，供邮件幂等使用 | 文案构建器统一填充 |
+| `email.py`（旧出件箱网关） | 删除 | 由 `mock_email.py` 取代 | 净类数 +1（新增 4、删除 3） |
+| `migrations.py` | 修改 | v1→v2：students 增 grade、activities 扩展 CHECK、新增 email_deliveries | 保留既有数据 |
+| `seed.py` / 页面 | 修改 | 演示年级、三种报名方式、邮件台账展示 | 与需求一致 |
+
+### 4.2 CR-01：为什么用“继承直接报名”的策略
+
+`GradeLimitedRegistrationPolicy` 的设计有两种写法：
+
+1. 直接继承 `RegistrationPolicy`，重新实现年级与容量两段逻辑；
+2. 继承 `DirectRegistrationPolicy`，只增加年级判定，然后调用 `super().decide(ctx)` 复用容量逻辑。
+
+本项目选择 **2**，理由：
+
+- “年级限定”在业务上就是“直接报名 + 年级门槛”，容量、满员行为完全相同；继承避免重复实现容量规则，符合 DRY；
+- 公共规则（活动时间、重复报名）仍在 `RegistrationPolicy.evaluate()` 模板方法中，不会被绕过；
+- `RegistrationService.register()` 仍然没有 `policy_type` 分支，新增方式只需在 `PolicyRegistry` 注册。
+
+这是“按原系统设计决定”的具体体现：原系统的 `decide` 变化点足以承载年级判断，不需要引入可组合规则框架。
+
+### 4.3 CR-02：MockEmailSender 在观察者结构中的位置
+
+```
+RegistrationService ──publish──▶ EventBus
+                                  ├─ InSiteNotificationSubscriber ──▶ messages
+                                  └─ EmailNotificationSubscriber ──▶ MockEmailSender
+                                                                       ├─ email_outbox
+                                                                       └─ email_deliveries（状态/错误/时间）
+```
+
+- 邮件发送属于**渠道副作用**，因此放在订阅者侧，不进入 `RegistrationService`；
+- `MockEmailSender` 只依赖仓储与时钟，不依赖业务服务，避免反向依赖；
+- 订阅者模板负责幂等 claim 与失败隔离；`MockEmailSender` 再以 `(event_id, student_id)` 做邮件级幂等，双保险；
+- 失败时 `MockEmailSender` 记录 failed + error 后抛错，订阅者把投递台账标为 failed，业务事务已提交，不回滚。
+
+### 4.4 依赖方向有没有变坏
+
+没有。变更只**向下**使用既有抽象：
+
+- `GradeLimitedRegistrationPolicy` 依赖领域值对象与父类策略；
+- `MockEmailSender` 依赖 `EmailOutboxRepository`、`EmailDeliveryRepository`、`Clock`；
+- `EmailNotificationSubscriber` 依赖 `MockEmailSender`，而 `EventBus` 只认识订阅者接口；
+- `domain/` 仍然不导入 Flask/sqlite3，`web/` 仍然不直接写 SQL。
+
+### 4.5 变更后的 SOLID 对照
+
+| 原则 | 初版体现 | 变更阶段的验证 |
 | --- | --- | --- |
-| SRP 单一职责 | 策略只判定；服务只编排；订阅者只投递；仓储只持久化 | 把容量判断、消息写入、页面跳转塞进 `register()` |
-| OCP 开闭 | 新增报名方式/通知渠道通过新增类与注册实现，不改主流程 | 在 `RegistrationService` 写 if/elif |
-| LSP 里氏替换 | 两个策略实现同一 `evaluate` 契约，均可被 `PolicyRegistry` 返回并调用 | 子类要求调用方先判断具体类型 |
-| ISP 接口隔离 | `EmailGateway` 只暴露 `send`；订阅者接口只暴露 `handle/deliver` | 一个“万能通知接口”强迫实现不需要的方法 |
-| DIP 依赖倒置 | 服务依赖 `PolicyRegistry`/`EventBus`/仓储接口语义，装配在容器 | 服务内部 `new SqliteConnection()` 或直接 `smtplib` |
+| SRP | 策略只判定、服务只编排、订阅者只投递 | 年级判断在策略；邮件记录在 MockEmailSender；台账在仓储 |
+| OCP | 新增报名方式通过新增策略 | CR-01 只新增 1 个策略类 + 注册 1 行，`RegistrationService` 零改动 |
+| LSP | 两个策略共用 `evaluate` 契约 | `GradeLimitedPolicy` 是 `DirectPolicy` 的子类型，可被注册表无差别调用 |
+| ISP | `EmailGateway` 只暴露 `send` | `MockEmailSender` 只暴露 `send`；订阅者接口未扩大 |
+| DIP | 服务依赖注册表/事件总线抽象 | 发送器依赖仓储与时钟，容器装配 |
 
-### 2.6 设计成本（如实记录）
+## 5. 两版类图差异汇总
 
-- 类比“一个 service 文件写完”多：基线 25 个 Python 文件、约 2.5k 行源码（含 docstring 与类型注解，不含测试与文档）。
-- 调用链更长：报名一次经过 controller → service → policy → repository → event bus → 2 个订阅者，排错需要看投递台账。
-- 对小项目存在过度设计风险；本项目的理由是“需求明确要求可扩展的报名规则与多通知渠道”，且变更阶段会验证收益。
+| 维度 | baseline-v1 | change-v2 | 差值 |
+| --- | --- | --- | --- |
+| 实体类 | 5 | 6（新增 EmailDelivery 审计实体） | +1 |
+| 报名策略实现 | 2 | 3 | +1 |
+| 应用服务 | 3 | 3 | 0 |
+| 领域事件 | 4 | 4 | 0 |
+| Python 类定义总数 | 52 | 53 | 净 +1（新增 4、删除 3 个旧邮件网关类） |
+| Python 文件数 / 源码行数 | 25 / 2497 | 25 / 2778 | 0 / +281 |
+| 测试用例数 | 29 | 41 | +12 |
 
-### 2.7 代码映射
+> 口径：`app/**/*.py`（含 docstring 与类型注解），由 `docs/tools/metrics.py` 与 `git diff --stat baseline-v1..change-v2` 统计；不含测试与文档。
+
+## 6. 设计成本（如实记录）
+
+- 类数量与调用链略有增加：源码 +281 行，邮件台账与发送器新增 4 个类，删除旧的 3 个网关类。
+- 一次报名仍要经过 controller → service → policy → repository → event bus → 2 个订阅者 → 发送器；排错需要同时看业务表与两张台账。
+- 对小项目存在过度设计风险；本项目的理由是“需求明确要求可扩展的报名规则与多通知渠道”，而变更阶段确实只新增 1 个策略类就接入了第三种报名方式，收益可被度量。
+
+## 7. 代码映射
 
 | 设计元素 | 文件 |
 | --- | --- |
-| 实体/枚举/值对象 | `app/domain/models.py` |
-| 策略与注册表 | `app/domain/policies.py` |
+| 实体/枚举/值对象（含 grade） | `app/domain/models.py` |
+| 策略与注册表（3 个策略） | `app/domain/policies.py` |
 | 领域事件 | `app/domain/events.py` |
 | 事件总线 | `app/services/event_bus.py` |
 | 通知订阅者与文案 | `app/services/notification_service.py` |
+| MockEmailSender | `app/services/mock_email.py` |
 | 报名/审批/活动服务 | `app/services/*.py` |
-| 仓储 | `app/repositories.py` |
+| 仓储（含邮件台账） | `app/repositories.py` |
 | 装配 | `app/container.py`、`app/dependencies.py` |
-| 表结构与迁移 | `app/migrations.py` |
-
+| 表结构与迁移（v1→v2） | `app/migrations.py` |
+| 变更影响与实测数据 | `07_变更需求单与影响分析.md`、`09_可维护性对照.md` |

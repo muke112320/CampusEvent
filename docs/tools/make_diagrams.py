@@ -248,11 +248,16 @@ def domain_diagram(version: str = "baseline") -> None:
     height = 1010 if is_change else 970
     canvas = Canvas(1400, height)
     title(canvas, "CampusEvent 领域模型类图" + ("（change-v2）" if is_change else "（baseline-v1）"),
-          "实体、值对象与状态枚举；变更版仅扩展报名状态，不新增实体")
+          "实体、值对象与状态枚举；变更版扩展学生年级与邮件台账，不新增报名状态")
 
+    student_attrs = ["- student_id : str", "- name : str", "- email : str", "- role : Role"]
+    student_methods = ["+ is_admin() : bool"]
+    if is_change:
+        student_attrs.append("- grade : int  (1—4)")
+        student_methods.append("+ grade_label() : str")
     student = class_box(canvas, 50, 100, 330, "Student",
-                        attrs=("- student_id : str", "- name : str", "- email : str", "- role : Role"),
-                        methods=("+ is_admin() : bool",), stereotype="«entity»")
+                        attrs=tuple(student_attrs), methods=tuple(student_methods),
+                        stereotype="«entity»")
     activity = class_box(canvas, 500, 90, 360, "Activity",
                          attrs=("- activity_id : str", "- title : str", "- category : str",
                                 "- start_at : datetime", "- location : str", "- capacity : int",
@@ -277,14 +282,12 @@ def domain_diagram(version: str = "baseline") -> None:
                         stereotype="«entity»")
     status_attrs = ("- PENDING = \"pending\"", "- APPROVED = \"approved\"",
                     "- REJECTED = \"rejected\"", "- CANCELLED = \"cancelled\"")
-    if is_change:
-        status_attrs = status_attrs + ("- WAITLISTED = \"waitlisted\"",)
     status = class_box(canvas, 50, 300, 330, "RegistrationStatus", attrs=status_attrs,
                        methods=("+ label : str", "+ is_active : bool"),
-                       stereotype="«enumeration»", header=HEADER_CHANGE if is_change else HEADER)
+                       stereotype="«enumeration»", header=HEADER)
     policy_attrs = ("- DIRECT = \"direct\"", "- REVIEW = \"review\"")
     if is_change:
-        policy_attrs = policy_attrs + ("- WAITLIST = \"waitlist\"",)
+        policy_attrs = policy_attrs + ("- GRADE_LIMITED = \"grade_limited\"",)
     policy_type = class_box(canvas, 50, status.y + status.h + 60, 330, "PolicyType",
                             attrs=policy_attrs, methods=("+ label : str",),
                             stereotype="«enumeration»", header=HEADER_CHANGE if is_change else HEADER)
@@ -310,15 +313,26 @@ def domain_diagram(version: str = "baseline") -> None:
     relation(canvas, activity.anchor("right", 0.45), stats.anchor("left", 0.5),
              dashed=True, label_text="«derive»", label_dx=-6, label_dy=-10)
 
+    if is_change:
+        class_box(canvas, 980, 600, 350, "EmailDelivery",
+                  attrs=("- email_id : str", "- event_id : str", "- student_id : str",
+                         "- to_address : str", "- subject : str", "- status : str",
+                         "- sent_at : datetime"),
+                  stereotype="«entity» · NEW", fill="#fff7ed", header=HEADER_CHANGE,
+                  title_color=CHANGE)
+
     note_y = max(role.y + role.h, message.y + message.h) + 30
+    if is_change:
+        note_y = 920
     canvas.rect(500, note_y, 830, 46, fill="#f8fafc", outline="#cbd5e1", width=1, radius=6)
     canvas.text(516, note_y + 8, "Message 通过 student_id / activity_id 弱关联，不持有对象引用；", 10.5, False, MUTED)
     canvas.text(516, note_y + 25, "状态枚举约束由数据库 CHECK 与领域对象共同保证。", 10.5, False, MUTED)
     if is_change:
-        canvas.rect(980, 600, 350, 84, fill="#fff7ed", outline="#fdba74", width=1.2, radius=8)
-        canvas.text(996, 612, "变更点（CR-01 / CR-02）", 11, True, CHANGE)
-        canvas.text(996, 632, "新增 waitlisted 状态；活动新增 cancelled 状态。", 10.5, False, INK)
-        canvas.text(996, 650, "实体字段不变，仅扩展状态枚举与报名策略。", 10.5, False, INK)
+        canvas.rect(980, 795, 350, 96, fill="#fff7ed", outline="#fdba74", width=1.2, radius=8)
+        canvas.text(996, 807, "变更点（CR-01 / CR-02）", 11, True, CHANGE)
+        canvas.text(996, 827, "Student 增加 grade（1—4）；PolicyType 增加 grade_limited。", 9.8, False, INK)
+        canvas.text(996, 845, "邮件发送记录独立台账：收件人、主题、内容、状态、时间，", 9.8, False, INK)
+        canvas.text(996, 863, "以 (event_id, student_id) 唯一约束防止重复发送。", 9.8, False, INK)
     canvas.save("class_domain_change.png" if is_change else "class_domain_baseline.png")
 
 
@@ -341,9 +355,10 @@ def design_diagram(version: str = "baseline") -> None:
     direct = class_box(canvas, 40, 300, 330, "DirectRegistrationPolicy",
                        methods=("+ decide(ctx) : PolicyDecision",), stereotype="«strategy»")
     if is_change:
-        waitlist = class_box(canvas, 40, 410, 330, "WaitlistRegistrationPolicy",
-                             methods=("+ decide(ctx) : PolicyDecision",),
-                             stereotype="«strategy» · NEW", fill="#fff7ed", header=HEADER_CHANGE)
+        grade = class_box(canvas, 40, 410, 330, "GradeLimitedRegistrationPolicy",
+                          methods=("+ decide(ctx) : PolicyDecision",),
+                          stereotype="«strategy» · NEW", fill="#fff7ed", header=HEADER_CHANGE,
+                          title_color=CHANGE)
         review_y = 520
         registry_y = 650
         context_y = 780
@@ -383,9 +398,8 @@ def design_diagram(version: str = "baseline") -> None:
                           attrs=("- _subscribers : list[NotificationSubscriber]",),
                           methods=("+ publish(event) : DeliveryReport",))
     if is_change:
-        class_box(canvas, 430, 870, 400, "WaitlistService",
-                  methods=("+ promote_next(activity_id) : Registration | None",),
-                  fill="#fff7ed", header=HEADER_CHANGE, title_color=CHANGE)
+        canvas.text(430, 900, "GradeLimitedPolicy 继承 DirectRegistrationPolicy：只增加年级校验，容量逻辑复用父类。",
+                    10, False, CHANGE)
 
     subscriber = class_box(canvas, 900, 105, 400, "NotificationSubscriber",
                            attrs=("+ name : str", "+ channel : str"),
@@ -398,19 +412,32 @@ def design_diagram(version: str = "baseline") -> None:
                       methods=("# deliver(student, content)",), stereotype="«observer»")
     class_box(canvas, 900, 450, 200, "MessageRepository",
               methods=("+ add(message)", "+ list_for_student(id)"))
-    class_box(canvas, 1120, 450, 200, "EmailGateway",
-              methods=("+ send(to, subject, body) : str",), stereotype="«interface»")
-    delivery = class_box(canvas, 900, 600, 420, "NotificationDeliveryRepository",
-                         attrs=("UNIQUE(event_id, subscriber, student_id)",),
-                         methods=("+ claim(event_id, subscriber, student_id)",
-                                  "+ mark(delivery_id, status, error)"))
+    sender = None
+    if is_change:
+        sender = class_box(canvas, 1120, 450, 240, "MockEmailSender",
+                           attrs=("- outbox / deliveries", "- fail : bool"),
+                           methods=("+ send(event_id, student, subject, body)",),
+                           fill="#fff7ed", header=HEADER_CHANGE, title_color=CHANGE)
+        delivery = class_box(canvas, 900, 620, 420, "NotificationDeliveryRepository",
+                             attrs=("UNIQUE(event_id, subscriber, student_id)",),
+                             methods=("+ claim(event_id, subscriber, student_id)",
+                                      "+ mark(delivery_id, status, error)"))
+        email_repo = class_box(canvas, 900, 770, 420, "EmailDeliveryRepository",
+                               attrs=("UNIQUE(event_id, student_id)",),
+                               methods=("+ record(event_id, student, status, ...)",
+                                        "+ find_for_event(event_id, student_id)"))
+    else:
+        class_box(canvas, 1120, 450, 200, "EmailGateway",
+                  methods=("+ send(to, subject, body) : str",), stereotype="«interface»")
+        delivery = class_box(canvas, 900, 600, 420, "NotificationDeliveryRepository",
+                             attrs=("UNIQUE(event_id, subscriber, student_id)",),
+                             methods=("+ claim(event_id, subscriber, student_id)",
+                                      "+ mark(delivery_id, status, error)"))
 
     # 继承
     relation(canvas, direct.anchor("top"), policy.anchor("bottom"), head="hollow")
     if is_change:
-        polyline(canvas, [waitlist.anchor("left", 0.5), (30, waitlist.y + waitlist.h * 0.5),
-                          (30, policy.y + policy.h * 0.78), policy.anchor("left", 0.78)],
-                 head="hollow")
+        relation(canvas, grade.anchor("top"), direct.anchor("bottom"), head="hollow")
         polyline(canvas, [review.anchor("left", 0.5), (20, review.y + review.h * 0.5),
                           (20, policy.y + policy.h * 0.88), policy.anchor("left", 0.88)],
                  head="hollow")
@@ -439,20 +466,34 @@ def design_diagram(version: str = "baseline") -> None:
              label_text="notify 1..*", label_segment=1, label_t=0.55, label_dx=-2, label_dy=-14)
     relation(canvas, in_site.anchor("bottom"), (1000, 450), dashed=True,
              label_text="add", label_dy=-6)
-    relation(canvas, email.anchor("bottom"), (1220, 450), dashed=True,
-             label_text="send", label_dy=-6)
-    polyline(canvas, [in_site.anchor("bottom", 0.5), (1000, 398),
-                      (1340, 398), (1340, 640), delivery.anchor("right", 0.3)],
-             dashed=True, label_text="claim", label_segment=1, label_t=0.6,
-             label_dx=-2, label_dy=-10)
-    polyline(canvas, [email.anchor("right", 0.8), (1360, email.y + email.h * 0.8),
-                      (1360, 680), delivery.anchor("right", 0.65)],
-             dashed=True, label_text="claim", label_segment=1, label_t=0.55,
-             label_dx=-2, label_dy=-10)
     if is_change:
-        relation(canvas, waitlist_service_top(), event_bus.anchor("bottom", 0.5), dashed=True,
-                 label_text="publish", label_dx=40, label_dy=-4)
-        canvas.text(430, 990, "由 RegistrationService.cancel() 在取消已通过报名后调用；递补写入与其处于同一事务。",
+        relation(canvas, email.anchor("bottom", 0.5), sender.anchor("top", 0.5), dashed=True,
+                 label_text="send", label_dy=-6)
+        polyline(canvas, [in_site.anchor("bottom", 0.5), (880, 398),
+                          (880, 690), delivery.anchor("left", 0.6)],
+                 dashed=True, label_text="claim", label_segment=2, label_t=0.35,
+                 label_dx=8, label_dy=-10)
+        polyline(canvas, [email.anchor("right", 0.8), (1380, email.y + email.h * 0.8),
+                          (1380, 700), delivery.anchor("right", 0.7)],
+                 dashed=True, label_text="claim", label_segment=2, label_t=0.4,
+                 label_dx=6, label_dy=-10)
+        polyline(canvas, [sender.anchor("right", 0.4), (1420, sender.y + sender.h * 0.4),
+                          (1420, 820), email_repo.anchor("right", 0.5)],
+                 dashed=True, label_text="record", label_segment=2, label_t=0.5,
+                 label_dx=4, label_dy=-10)
+    else:
+        relation(canvas, email.anchor("bottom"), (1220, 450), dashed=True,
+                 label_text="send", label_dy=-6)
+        polyline(canvas, [in_site.anchor("bottom", 0.5), (1000, 398),
+                          (1340, 398), (1340, 640), delivery.anchor("right", 0.3)],
+                 dashed=True, label_text="claim", label_segment=1, label_t=0.6,
+                 label_dx=-2, label_dy=-10)
+        polyline(canvas, [email.anchor("right", 0.8), (1360, email.y + email.h * 0.8),
+                          (1360, 680), delivery.anchor("right", 0.65)],
+                 dashed=True, label_text="claim", label_segment=1, label_t=0.55,
+                 label_dx=-2, label_dy=-10)
+    if is_change:
+        canvas.text(430, 930, "邮件发送属于观察者侧渠道实现：MockEmailSender 不反向依赖报名服务。",
                     10, False, CHANGE)
 
     notes = [
@@ -462,7 +503,8 @@ def design_diagram(version: str = "baseline") -> None:
         "4. 投递台账唯一约束保证同一事件不重复通知。",
     ]
     if is_change:
-        notes.append("5. CR-01：候补递补属于领域写入，由 WaitlistService 完成；通知仍由订阅者处理，不混入观察者。")
+        notes.append("5. CR-01：GradeLimitedPolicy 继承 DirectPolicy，只增加年级校验，容量逻辑复用。")
+        notes.append("6. CR-02：MockEmailSender 记录每封邮件的收件人/内容/状态/时间，并以唯一约束防重。")
     note_y = 1160 if is_change else 1015
     canvas.text(40, note_y, "设计要点", 12, True, INK)
     y = note_y + 22
@@ -470,10 +512,6 @@ def design_diagram(version: str = "baseline") -> None:
         canvas.text(40, y, note, 10.5, False, MUTED)
         y += 19
     canvas.save("class_design_change.png" if is_change else "class_design_baseline.png")
-
-
-def waitlist_service_top():
-    return (630, 870)
 
 
 # ---------------------------------------------------------------------------
@@ -679,37 +717,68 @@ def approval_sequence() -> None:
                      participants, messages)
 
 
-def waitlist_sequence() -> None:
+def grade_limited_sequence() -> None:
     participants = [
-        Participant("ui", "学生 A 浏览器", 120),
+        Participant("ui", "学生浏览器", 120),
         Participant("svc", "RegistrationService", 390),
-        Participant("wl", "WaitlistService", 660),
-        Participant("db", "SQLite", 920),
+        Participant("policy", "GradeLimitedPolicy", 660),
+        Participant("db", "SQLite\nregistrations", 920),
         Participant("bus", "EventBus", 1180),
         Participant("sub", "通知订阅者", 1450),
     ]
     messages = [
-        ("ui", "svc", "POST /registrations/{id}/cancel"),
-        ("svc", "db", "UPDATE status = cancelled"),
-        ("svc", "wl", "promote_next(activity_id)"),
-        ("wl", "db", "查询 waitlisted，按 created_at 取最早"),
-        ("wl", "db", "UPDATE status = approved"),
-        ("svc", "bus", "publish(RegistrationCancelled)"),
-        ("bus", "sub", "通知学生 A：报名已取消"),
-        ("wl", "bus", "publish(RegistrationPromoted)"),
-        ("bus", "sub", "通知学生 B：候补递补成功"),
+        ("ui", "svc", "POST /activities/{id}/register"),
+        ("svc", "db", "读取活动、学生年级、有效报名、已通过数"),
+        ("svc", "policy", "evaluate(ctx)"),
+        ("policy", "policy", "公共规则：活动未开始、无重复有效报名"),
+        ("policy", "policy", "年级 ∈ {2,3}？否 → deny(明确原因)，不写库"),
+        ("policy", "policy", "是 → 复用 Direct 的容量判定"),
+        ("svc", "db", "（仅通过时）INSERT (approved)  [BEGIN IMMEDIATE]"),
+        ("db", "svc", "commit"),
+        ("svc", "bus", "（仅通过时）publish(RegistrationApproved)"),
+        ("bus", "sub", "handle(event) × 2 渠道"),
+        ("svc", "ui", "302 详情页：成功或年级不符提示"),
     ]
-    sequence_diagram("seq_waitlist_promotion.png", "时序图：候补自动递补（change-v2 / CR-01）",
-                     "取消与递补在同一事务中完成；通知仍由订阅者处理",
+    sequence_diagram("seq_grade_limited.png", "时序图：年级限定报名（change-v2 / CR-01）",
+                     "年级校验在策略 decide 中完成；活动时间、重复报名、名额仍由公共规则与父类保证",
+                     participants, messages)
+
+
+def email_notification_sequence() -> None:
+    participants = [
+        Participant("svc", "RegistrationService", 110),
+        Participant("bus", "EventBus", 370),
+        Participant("site", "InSiteSubscriber", 630),
+        Participant("mail", "EmailSubscriber", 890),
+        Participant("sender", "MockEmailSender", 1150),
+        Participant("db", "SQLite\n通知台账", 1420),
+    ]
+    messages = [
+        ("svc", "bus", "publish(RegistrationApproved / Rejected)"),
+        ("bus", "site", "handle(event)"),
+        ("site", "db", "claim → INSERT messages → mark(sent)"),
+        ("bus", "mail", "handle(event)"),
+        ("mail", "sender", "send(event_id, student, subject, body)"),
+        ("sender", "db", "INSERT email_deliveries(sent) + email_outbox"),
+        ("sender", "mail", "故障：记录 failed(error) 后抛 NotificationError"),
+        ("mail", "bus", "异常被隔离，写入投递台账；报名不回滚"),
+        ("bus", "svc", "返回投递报告（含失败渠道）"),
+    ]
+    sequence_diagram("seq_email_notification.png", "时序图：模拟邮件通知（change-v2 / CR-02）",
+                     "站内通知继续运行；MockEmailSender 负责邮件落库与失败留痕，事件级唯一约束防重",
                      participants, messages)
 
 
 if __name__ == "__main__":
     domain_diagram("baseline")
     design_diagram("baseline")
+    domain_diagram("change")
+    design_diagram("change")
     use_case_diagram()
     direct_registration_sequence()
     review_registration_sequence()
     approval_sequence()
+    grade_limited_sequence()
+    email_notification_sequence()
 
 
